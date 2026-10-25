@@ -1,0 +1,45 @@
+name: NCAAM season data pull
+
+on:
+  schedule:
+    - cron: '17 5 * * *'
+    - cron: '57 8 * * *'
+    - cron: '17 16 * * *'
+    - cron: '37 21 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ncaam-season-pull
+  cancel-in-progress: false
+
+jobs:
+  pull:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install requests
+        run: pip install requests
+      - name: Run pull
+        env:
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+          RATINGS_URL: ${{ secrets.RATINGS_URL }}
+        run: python ncaam_season_data_pull.py
+      - name: Save the data file
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@users.noreply.github.com"
+          git add ncaam_season_data.json
+          if git diff --cached --quiet; then
+            echo "No change to save"
+          else
+            git commit -m "Season data pull $(date -u '+%Y-%m-%d %H:%M') UTC"
+            git pull --rebase
+            git push
+          fi
